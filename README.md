@@ -1,2 +1,2 @@
-# Inteligent-Systems-for-Bioinformtics-25-26
+# Inteligent-Systems-for-Bioinformatics-25-26
 We be workin fr
