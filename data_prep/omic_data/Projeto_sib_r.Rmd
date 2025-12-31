@@ -1,0 +1,193 @@
+---
+title: "Projeto_sib"
+author: "Alexandre Sá Ferreira"
+date: "2025-12-27"
+output: html_document
+---
+Este documento serve para podermos limpar os metadados extaridos originalmente do site x. Utilizou-se filtros para poder reduzir a nossa quantidade de dados. Decidimos focar inicialmente em apenas um continente e depois em um país com grande número de casos de influenza. O japão nos pareceu ideal para além de ter um grande número de estudos que nos poderiam ajudar a escrever a revisão de literatura. 
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r }
+#if (!require("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install("Biostrings")
+```
+
+```{r packages utilizados}
+library(Biostrings)
+library(readxl)
+```
+
+A importação dos dados é inicialmente desformatada, com todos os metadatos em uma só coluna. Os seguintes blocos de código são para conseguirmos apresenta'los de modo legível
+```{r carregaemnto dos dados originais }
+# Ler o ficheiro Excel
+dados_influenza <- read_excel("C:\\Users\\ikawa\\OneDrive\\Desktop\\BIOINF\\Ano2\\Sem1\\SIB\\trabalho\\sequences_og.xlsx")
+
+
+# Visualizar os dados
+View(dados_influenza)
+
+# Verificar se as colunas estão corretas
+str(dados_influenza)
+
+```
+
+```{r}
+# 1. Extrair o cabeçalho
+cabecalho <- names(dados_influenza)[1]
+
+# 2. Extrair as linhas de dados
+linhas <- dados_influenza[[1]]
+
+# 3. Combinar e converter para um formato de tabela correto
+# Re-processar as vírgulas como separadores
+dados_limpos <- read.csv(text = c(cabecalho, linhas), check.names = FALSE)
+
+# 4. Verificar o resultado
+View(dados_limpos)
+dim(dados_limpos)
+
+```
+
+
+Com os dados em uma tabela legível achamos necessário reduzir ainda mais o numero de amostras para o nosso modelo de machine learning. Assim vamos escolher apenas um dos subtipos do vírus de influenza A. Como o subtipo H3N2 é o mais populaso escolher'se á. 
+```{r}
+table(dados_limpos$Genotype)
+```
+```{r criação do subset H3N2}
+
+df_H3N2 <-subset(dados_limpos, Genotype == 'H3N2')
+
+nrow(df_H3N2)
+```
+
+
+
+```{r}
+# 1. Carregar todas as sequências do ficheiro FASTA
+todas_seqs <- readDNAStringSet("C:\\Users\\ikawa\\OneDrive\\Desktop\\BIOINF\\Ano2\\Sem1\\SIB\\trabalho\\sequences_og.fasta")
+
+# 2. Extrair os IDs do teu dataframe filtrado (ajusta o nome da coluna se necessário)
+ids_h3n2 <- df_H3N2$Accession
+
+# 2. Limpar os nomes do FASTA para a comparação
+# Vamos pegar apenas o ID antes do ponto ou do espaço
+nomes_limpos_fasta <- sub("\\..*", "", names(todas_seqs)) # Remove tudo a partir do ponto
+nomes_limpos_fasta <- sub(" .*", "", nomes_limpos_fasta) # Remove tudo a partir do espaço
+
+# 4. Criar a máscara lógica de filtragem
+logica_filtro <- nomes_limpos_fasta %in% ids_h3n2
+
+# 5. Aplicar o filtro
+fasta_h3n2 <- todas_seqs[logica_filtro]
+
+# 6. Verificar se agora funcionou
+print(paste("Sequências encontradas:", length(fasta_h3n2)))
+```
+
+```{r}
+# 1. Extrair os nomes (headers) das sequências filtradas
+headers_h3n2 <- names(fasta_h3n2)
+
+# 2. Cortar tudo o que estiver antes (e incluindo) o "(H3N2)) "
+# Usamos \\ para "escapar" os parênteses, pois eles são caracteres especiais no R
+segmentos_limpos <- sub(".*\\(H3N2\\)\\) ", "", headers_h3n2)
+```
+
+```{r}
+# 1. Definir exatamente o nome do segmento que queres extrair
+# (Copiei exatamente o texto que apareceu no teu resultado)
+segmento_alvo <- "segment 4 hemagglutinin (HA) gene, complete cds"
+
+# 2. Identificar quais os cabeçalhos que terminam com esse texto
+# Nota: usamos os 'segmentos_limpos' que criámos no passo anterior
+indices_alvo <- segmentos_limpos == segmento_alvo
+
+# 3. Filtrar o objeto Biostrings
+fasta_segmento4 <- fasta_h3n2[indices_alvo]
+
+# 4. Verificar se o número bate certo (deve dar 135)
+length(fasta_segmento4)
+
+# 5. Guardar num novo ficheiro FASTA
+writeXStringSet(fasta_segmento4, "H3N2_Segmento4_HA.fasta")
+```
+
+```{r}
+# 1. Calcular o comprimento (número de bases) de todas as sequências H3N2
+comprimentos <- width(fasta_h3n2)
+
+# 2. Criar um dataframe temporário para análise
+df_analise_tamanho <- data.frame(
+  Segmento = segmentos_limpos,
+  Tamanho = comprimentos
+)
+
+# 3. Agrupar e calcular: Min, Max, Quantos tamanhos diferentes e Total de sequências
+resumo_consistencia <- aggregate(Tamanho ~ Segmento, 
+                                 data = df_analise_tamanho, 
+                                 FUN = function(x) c(Min = min(x), 
+                                                     Max = max(x), 
+                                                     Diferentes = length(unique(x)),
+                                                     Total = length(x)))
+
+# 4. Converter para um formato de tabela legível
+resumo_consistencia <- do.call(data.frame, resumo_consistencia)
+
+# Atualizar os nomes das colunas (agora com 5 colunas)
+colnames(resumo_consistencia) <- c("Segmento", 
+                                   "Tam_Minimo", 
+                                   "Tam_Maximo", 
+                                   "Qtd_Tamanhos_Distintos", 
+                                   "Total_Sequencias")
+
+# 5. Ordenar pela maior quantidade de sequências para facilitar a leitura
+resumo_consistencia <- resumo_consistencia[order(-resumo_consistencia$Total_Sequencias), ]
+
+# 6. Ver o resultado
+print(resumo_consistencia)
+```
+
+```{r}
+# 1. Criar um vetor com os nomes exatos dos segmentos que queres agrupar
+alvos_ha <- c(
+  "segment 4 hemagglutinin (HA) gene, complete cds",
+  "hemagglutinin (HA) gene, complete cds",
+  "HA gene for hemagglutinin, complete cds"
+)
+
+# 2. Identificar quais os índices que pertencem a qualquer um destes nomes
+# Usamos o 'segmentos_limpos' que criámos anteriormente
+indices_combinados <- segmentos_limpos %in% alvos_ha
+
+# 3. Filtrar o objeto original com as sequências H3N2
+fasta_ha_unificado <- fasta_h3n2[indices_combinados]
+
+# 4. Verificar quantas sequências temos no total (deve ser a soma dos 3 grupos)
+cat("Total de sequências de HA (complete cds) reunidas:", length(fasta_ha_unificado), "\n")
+
+# 5. Guardar o resultado num novo ficheiro FASTA
+writeXStringSet(fasta_ha_unificado, "H3N2_HA_Merged_Complete.fasta")
+
+# 6. Opcional: Verificar se os tamanhos são consistentes neste novo grupo
+table(width(fasta_ha_unificado))
+```
+
+```{r}
+# 1. Criar o dataframe de metadados apenas com os segmentos HA selecionados
+df_ha_metadados <- df_H3N2[indices_combinados, ]
+
+# 2. Verificar se o número de linhas do DF bate com o número de sequências do FASTA
+# (Devem ser iguais ao 'length(fasta_ha_unificado)')
+nrow(df_ha_metadados)
+
+# 3. Guardar os metadados num ficheiro CSV (caso precises para o Excel depois)
+write.csv(df_ha_metadados, "Metadados_H3N2_HA_Complete.csv", row.names = FALSE)
+
+# 4. Ver as primeiras linhas para confirmar
+View(df_ha_metadados)
+```
