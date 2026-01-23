@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ---
 title: "Projeto_sib"
 author: "Alexandre Sá Ferreira"
@@ -214,4 +215,3 @@ write.csv(df_ha_metadados, "Metadados_H3N2_HA_Complete.csv", row.names = FALSE)
 # 4. Ver as primeiras linhas para confirmar
 View(df_ha_metadados)
 ```
-
