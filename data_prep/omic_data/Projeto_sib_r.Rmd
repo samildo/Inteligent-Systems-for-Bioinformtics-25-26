@@ -1,10 +1,18 @@
+<<<<<<< HEAD
 ---
 title: "Projeto_sib"
 author: "Alexandre Sá Ferreira"
 date: "2025-12-27"
 output: html_document
 ---
-Este documento serve para podermos limpar os metadados extaridos originalmente do site x. Utilizou-se filtros para poder reduzir a nossa quantidade de dados. Decidimos focar inicialmente em apenas um continente e depois em um país com grande número de casos de influenza. O japão nos pareceu ideal para além de ter um grande número de estudos que nos poderiam ajudar a escrever a revisão de literatura. 
+Este documento tem como objetivo a limpeza e pré-processamento dos metadados originalmente extraídos do site NCBI Virus. Para tal, foram aplicados filtros com o intuito de reduzir a quantidade de dados analisados e garantir a relevância biológica das amostras.
+
+O estudo foi inicialmente focado em um único continente e, posteriormente, em um país com elevado número de casos de influenza. O organismo hospedeiro considerado foi o Homo sapiens, e as amostras incluídas estavam compreendidas no intervalo temporal de 01/01/2015 a 01/01/2025.
+
+O Japão revelou-se uma escolha adequada, não apenas por apresentar um grande número de caso, cerca de 10 mil, mas também pela vasta quantidade de estudos disponíveis, que poderão contribuir significativamente para a elaboração da revisão de literatura.
+
+Após aplicação dos filtros, foi obtido um dataset com 1856 amostras de sequências nucleotídicas, distribuídas em 14 categorias distintas, adequado para análises subsequentes, como seleção de subtipos virais específicos e preparação para modelagem de machine learning.
+
 
 
 ```{r setup, include=FALSE}
@@ -22,10 +30,12 @@ library(Biostrings)
 library(readxl)
 ```
 
-A importação dos dados é inicialmente desformatada, com todos os metadatos em uma só coluna. Os seguintes blocos de código são para conseguirmos apresenta'los de modo legível
+A importação inicial dos dados resulta em um formato desestruturado, no qual todos os metadados se encontram concentrados em uma única coluna. Os blocos de código apresentados a seguir têm como objetivo reorganizar essa informação, separando corretamente os campos e tornando os dados legíveis e adequados para análise posterior.
+
+No primeiro bloco, o ficheiro Excel original é carregado para o ambiente R e é realizada uma inspeção inicial da sua estrutura, permitindo verificar o formato das colunas e o conteúdo importado.
 ```{r carregaemnto dos dados originais }
 # Ler o ficheiro Excel
-dados_influenza <- read_excel("C:\\Users\\ikawa\\OneDrive\\Desktop\\BIOINF\\Ano2\\Sem1\\SIB\\trabalho\\sequences_og.xlsx")
+dados_influenza <- read_excel("sequences.xlsx") #respetuivo path para o ficheiro
 
 
 # Visualizar os dados
@@ -36,6 +46,7 @@ str(dados_influenza)
 
 ```
 
+Uma vez identificado que os metadados estão condensados em uma única coluna, procede-se à sua reestruturação. Para isso, o cabeçalho e as linhas de dados são extraídos separadamente e, em seguida, reprocessados considerando as vírgulas como separadores de campo, permitindo a reconstrução da tabela original.
 ```{r}
 # 1. Extrair o cabeçalho
 cabecalho <- names(dados_influenza)[1]
@@ -54,22 +65,29 @@ dim(dados_limpos)
 ```
 
 
-Com os dados em uma tabela legível achamos necessário reduzir ainda mais o numero de amostras para o nosso modelo de machine learning. Assim vamos escolher apenas um dos subtipos do vírus de influenza A. Como o subtipo H3N2 é o mais populaso escolher'se á. 
+Com os dados organizados em uma tabela legível, tornou-se necessário reduzir ainda mais o número de amostras a fim de adequar o conjunto de dados ao modelo de machine learning. Para isso, optou-se por selecionar apenas um dos subtipos do vírus Influenza A.
+
+O subtipo H3N2 foi escolhido por ser o mais prevalente no conjunto de dados. Essa seleção permitiu reduzir o dataset original de 1856 amostras para 1212 amostras, tornando-o mais específico e homogéneo para a modelagem.
+
+Inicialmente, foi avaliada a distribuição dos genótipos presentes no conjunto de dados: 
 ```{r}
 table(dados_limpos$Genotype)
 ```
+
+Em seguida, foi criado um subconjunto contendo exclusivamente as amostras do subtipo H3N2:
 ```{r criação do subset H3N2}
 
 df_H3N2 <-subset(dados_limpos, Genotype == 'H3N2')
 
 nrow(df_H3N2)
 ```
+Este procedimento assegura que o modelo de machine learning seja treinado com dados mais consistentes e biologicamente relevantes, reduzindo a variabilidade associada a diferentes subtipos virais.
 
 
-
+Com o subconjunto de metadados H3N2 definido, filtramos as sequências correspondentes no ficheiro FASTA original. Para isso, carregamos todas as sequências, comparamos os IDs do dataframe com os nomes do FASTA (após limpeza de pontos e espaços) e extraímos apenas as sequências correspondentes.
 ```{r}
 # 1. Carregar todas as sequências do ficheiro FASTA
-todas_seqs <- readDNAStringSet("C:\\Users\\ikawa\\OneDrive\\Desktop\\BIOINF\\Ano2\\Sem1\\SIB\\trabalho\\sequences_og.fasta")
+todas_seqs <- readDNAStringSet("sequences.fasta") #respetivo path para o ficheiro
 
 # 2. Extrair os IDs do teu dataframe filtrado (ajusta o nome da coluna se necessário)
 ids_h3n2 <- df_H3N2$Accession
@@ -80,7 +98,7 @@ nomes_limpos_fasta <- sub("\\..*", "", names(todas_seqs)) # Remove tudo a partir
 nomes_limpos_fasta <- sub(" .*", "", nomes_limpos_fasta) # Remove tudo a partir do espaço
 
 # 4. Criar a máscara lógica de filtragem
-logica_filtro <- nomes_limpos_fasta %in% ids_h3n2
+logica_filtro <- nomes_limpos_fasta %in% ids_h3n2 #verifica que os ids antigos não estão nos ids limpos
 
 # 5. Aplicar o filtro
 fasta_h3n2 <- todas_seqs[logica_filtro]
@@ -89,6 +107,7 @@ fasta_h3n2 <- todas_seqs[logica_filtro]
 print(paste("Sequências encontradas:", length(fasta_h3n2)))
 ```
 
+Em seguida, realizamos uma limpeza adicional nos cabeçalhos das sequências filtradas, removendo informações redundantes antes do marcador (H3N2)), de forma a obter nomes claros e consistentes para análises subsequentes.
 ```{r}
 # 1. Extrair os nomes (headers) das sequências filtradas
 headers_h3n2 <- names(fasta_h3n2)
@@ -98,9 +117,11 @@ headers_h3n2 <- names(fasta_h3n2)
 segmentos_limpos <- sub(".*\\(H3N2\\)\\) ", "", headers_h3n2)
 ```
 
+
+A seguir, realizamos a seleção e análise das sequências correspondentes ao segmento 4, hemaglutinina (HA), que é biologicamente relevante para estudos de Influenza A H3N2.
+Primeiro, filtramos as sequências para o segmento alvo, verificamos se o número de sequências corresponde ao esperado e salvamos o subconjunto em um novo ficheiro FASTA.
 ```{r}
 # 1. Definir exatamente o nome do segmento que queres extrair
-# (Copiei exatamente o texto que apareceu no teu resultado)
 segmento_alvo <- "segment 4 hemagglutinin (HA) gene, complete cds"
 
 # 2. Identificar quais os cabeçalhos que terminam com esse texto
@@ -117,6 +138,7 @@ length(fasta_segmento4)
 writeXStringSet(fasta_segmento4, "H3N2_Segmento4_HA.fasta")
 ```
 
+Em seguida, calculamos o comprimento de todas as sequências H3N2, gerando um resumo de consistência por segmento, incluindo tamanho mínimo, máximo, número de tamanhos distintos e total de sequências. Essa etapa permite avaliar a qualidade e a uniformidade dos dados antes da análise.
 ```{r}
 # 1. Calcular o comprimento (número de bases) de todas as sequências H3N2
 comprimentos <- width(fasta_h3n2)
@@ -152,6 +174,7 @@ resumo_consistencia <- resumo_consistencia[order(-resumo_consistencia$Total_Sequ
 print(resumo_consistencia)
 ```
 
+Para consolidar diferentes nomes de HA presentes nos metadados, criamos um subconjunto unificado com todas as variantes de nomenclatura de HA (complete cds), verificando o total de sequências e salvando em um ficheiro FASTA combinado.
 ```{r}
 # 1. Criar um vetor com os nomes exatos dos segmentos que queres agrupar
 alvos_ha <- c(
@@ -177,6 +200,7 @@ writeXStringSet(fasta_ha_unificado, "H3N2_HA_Merged_Complete.fasta")
 table(width(fasta_ha_unificado))
 ```
 
+Por fim, associamos os metadados correspondentes a estas sequências HA unificadas, verificando a correspondência entre o número de linhas do dataframe e o número de sequências do FASTA, e salvamos os metadados em formato CSV para análises posteriores.
 ```{r}
 # 1. Criar o dataframe de metadados apenas com os segmentos HA selecionados
 df_ha_metadados <- df_H3N2[indices_combinados, ]
