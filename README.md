@@ -1,2 +1,4 @@
-# Inteligent-Systems-for-Bioinformatics-25-26
-We be workin fr
+# Intelligent systems for bioinformatics 25/26 
+
+Work done by: 
+- [Alexandre Ferreira]()
