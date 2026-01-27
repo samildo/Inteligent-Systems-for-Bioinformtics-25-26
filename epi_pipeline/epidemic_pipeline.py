@@ -9,8 +9,15 @@ from features import hamming_distance, compare_glycosylation, get_physicochemica
 
 
 class EpidemicPipeline:
+    """
+    Orchestrates the end-to-end workflow: transforming viral sequences into 
+    epidemiological predictions using Machine Learning and Agent-Based Modeling.
+    """
     def __init__(self):
-        """Carrega modelos e referências na inicialização."""
+        """
+        Initializes the pipeline by loading the pre-trained Random Forest model, 
+        feature definitions, and reference sequences (vaccines/consensus).
+        """
         print("A carregar recursos do sistema...")
         self.model = joblib.load('../epi_pipeline/modelo/rf_epitope_model.joblib')
         self.feature_names = joblib.load('../epi_pipeline/modelo/model_features.joblib')
@@ -23,8 +30,16 @@ class EpidemicPipeline:
 
     def extract_features(self, sequence: str) -> pd.DataFrame:
         """
-        Transforma uma string de DNA/Proteína crua num DataFrame 
-        com as colunas exatas que o Random Forest espera.
+        Featurizes a raw protein sequence into the specific format required by the ML model.
+
+        Calculates genetic distances (Hamming) to reference strains, analyzes 
+        glycosylation motif changes (gain/loss/common), and computes physicochemical properties.
+
+        Args:
+            sequence (str): The raw amino acid sequence of the viral protein.
+
+        Returns:
+            pd.DataFrame: A single-row DataFrame with columns aligned to the trained model.
         """
         seq_str = str(sequence)
         
@@ -81,7 +96,26 @@ class EpidemicPipeline:
                              intra_region_prob: float = 0.8,
                              random_seed: int = 42):
         """
-        Pipeline completo com controlo total sobre os parâmetros do ABM.
+        Executes the complete prediction pipeline: from sequence analysis to epidemic simulation.
+
+        1. Predicts antigenic distance (pEpitope) using the ML model.
+        2. Derives epidemiological parameters (VE, R0, Beta) from the prediction.
+        3. Configures and runs the stochastic Agent-Based Model (ABM).
+
+        Args:
+            sequence (str): The viral sequence to analyze.
+            sim_days (int): Duration of the simulation.
+            sim_N (int): Total population size.
+            sim_vacc_coverage (float): Baseline vaccination coverage.
+            contacts_per_day (float): Average daily contacts per agent.
+            latent_period (float): Average days in Exposed state.
+            infectious_period (float): Average days in Infectious state.
+            distancing_factor (float): Multiplier for contact rate (e.g., 0.5 = 50% reduction).
+            n_regions (int): Number of spatial clusters.
+            random_seed (int): Seed for reproducibility.
+
+        Returns:
+            tuple: (pd.DataFrame containing simulation results, float predicted pEpitope).
         """
         # --- PASSO A: ML PREDICTION ---
         features_df = self.extract_features(sequence)
@@ -147,6 +181,9 @@ class EpidemicPipeline:
         return sim_results, p_epitope_pred
 
     def plot_results(self, sim_df, title_suffix=""):
+        """
+        Visualizes the simulation trajectory (Infected vs Recovered) over time.
+        """
         plt.figure(figsize=(10, 5))
         plt.plot(sim_df["day"], sim_df["I"], label="Infetados (I)", color='crimson', linewidth=2)
         plt.title(f"Previsão de Dinâmica Epidémica {title_suffix}")

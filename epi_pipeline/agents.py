@@ -11,6 +11,9 @@ STATE_RECOVERED = 3
 
 @dataclass
 class Variant:
+    """
+    Represents a viral variant with specific epidemiological parameters derived from antigenic fitness.
+    """
     name: str
     p_epitope: float
     VE: float
@@ -19,6 +22,9 @@ class Variant:
 
 @dataclass
 class Agent:
+    """
+    Represents an individual agent in the simulation, tracking infection status, vaccination, and location.
+    """
     state: int = STATE_SUSCEPTIBLE
     vaccinated: bool = False
     region: int = 0  # rótulo da região/cluster espacial
@@ -41,8 +47,28 @@ def run_abm_simulation(
     random_seed: Optional[int] = 42,
 ) -> pd.DataFrame:
     """
-    Simula um modelo ABM S–E–I–R com transições estocásticas (Markovianas).
-    Isto gera curvas mais suaves e realistas do que períodos fixos.
+    Executes a stochastic, spatial Agent-Based Model (ABM) following S-E-I-R dynamics.
+
+    Simulates infection spread across multiple regions with probabilistic state transitions
+    (Markovian) rather than fixed time periods, resulting in organic epidemic curves.
+
+    Args:
+        variants (Dict[str, Variant]): Dictionary of circulating viral variants.
+        days (int): Total duration of the simulation in days.
+        N (int): Total population size.
+        vaccine_coverage (float): Baseline fraction of the population vaccinated [0-1].
+        initial_infected (Optional[Dict[str, int]]): Initial seed cases per variant.
+        contacts_per_day (float): Average daily contacts per agent (Poisson parameter).
+        latent_period (float): Average days in Exposed state (determines transition prob).
+        infectious_period (float): Average days in Infectious state (determines recovery prob).
+        distancing_factor (float): Multiplier for contact rate (e.g., 0.5 = 50% reduction).
+        extra_vaccination (float): Additional vaccination coverage (scenario testing).
+        n_regions (int): Number of distinct spatial clusters.
+        intra_region_prob (float): Probability of contact occurring within the same region.
+        random_seed (Optional[int]): Seed for reproducibility.
+
+    Returns:
+        pd.DataFrame: Daily records of S, E, I, R counts and variant-specific data.
     """
     
     if random_seed is not None:
