@@ -15,7 +15,7 @@ The main objective is to predict antigenic escape and understand the evolutionar
 ### Key features
 * **Data engineering:** Processing of raw FASTA sequences, Multiple Sequence Alignment (MSA), and epitope mapping.
 * **Feature extraction:** Calculation of **pEpitope** (antigenic distance), N-glycosylation sites, and physicochemical property changes.
-* **Machine learning modeling:**
+* **Machine learning modelling:**
     * **Linear regression:** Baseline model for trend analysis.
     * **Random forest regressor:** Non-linear model to capture complex evolutionary patterns (e.g., glycosylation gain/loss).
 * **Validation:** Time-series split validation to simulate real-world forecasting scenarios.
@@ -25,17 +25,16 @@ The main objective is to predict antigenic escape and understand the evolutionar
 ```text
 ├── data_prep/              # Data preprocessing scripts
 │   ├── epidmiological_data/ # CSV files with Japan surveillance data
-│   ├── omic_data/           # FASTA sequences and R Markdown scripts
-│   └── Projeto_sib_r.Rmd    # R script for sequence alignment and cleaning
+│   └── omic_data/           # FASTA sequences and R markdown scripts
 │
 ├── epi_pipeline/           # Python modules for the analysis pipeline
-│   ├── agents.py            # Agent definitions (Virus/Host abstractions)
+│   ├── agents.py            # Agent definitions (virus/host abstractions)
 │   ├── epidemic_pipeline.py # Main execution logic
 │   ├── features.py          # Feature engineering (mutations, glycosylation)
 │   └── pepitope.py          # pEpitope calculation logic
 │
-├── ML/                     # Machine Learning analysis
-│   └── notebook.ipynb       # Main Jupyter Notebook (Training & Evaluation)
+├── ML/                     # Machine learning analysis
+│   └── notebook.ipynb       # Main jupyter notebook (training & evaluation)
 │
-├── images/                 # Plots and figures used in reports
-└── README.md               # Project documentation
+├── images/                 
+└── README.md               
