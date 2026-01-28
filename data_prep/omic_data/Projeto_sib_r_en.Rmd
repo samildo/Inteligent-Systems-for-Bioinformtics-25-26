@@ -1,0 +1,219 @@
+<<<<<<< HEAD
+---
+title: "Projeto_sib"
+author: "Alexandre Sá Ferreira"
+date: "2025-12-27"
+output: html_document
+---
+The objective of this document is to clean and pre-process the metadata originally extracted from the NCBI Virus website. To achieve this, filters were applied to reduce the volume of data analyzed and to ensure the biological relevance of the samples.
+
+The study initially focused on a single continent and, subsequently, on a country with a high number of influenza cases. The host organism considered was Homo sapiens, and the samples included were within the time interval from 01/01/2015 to 01/01/2025.
+
+Japan proved to be an appropriate choice, not only because it presents a large number of cases (approximately 10,000) but also due to the vast amount of available studies, which will contribute significantly to the literature review.
+
+After applying the filters, a dataset with 1,856 nucleotide sequence samples distributed across 14 distinct categories was obtained. This dataset is suitable for subsequent analyses, such as the selection of specific viral subtypes and preparation for machine learning modeling.
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#if (!require("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install("Biostrings")
+```
+
+```{r}
+library(Biostrings)
+library(readxl)
+```
+
+The initial data import results in an unstructured format where all metadata is concentrated into a single column. The following code blocks aim to reorganize this information, correctly separating the fields and making the data readable and suitable for subsequent analysis.
+
+In the first block, the original Excel file is loaded into the R environment, and an initial inspection of its structure is performed to verify the column formats and the imported content.
+
+```{r}
+# Reads the Excel file
+influenza_data <- read_excel("sequences.xlsx") # path to file
+
+
+# Data visualization
+View(influenza_data)
+
+# Verifies if the column are correct 
+str(influenza_data)
+```
+
+Once it is identified that the metadata is condensed into a single column, we proceed with its restructuring. To do this, the header and data rows are extracted separately and then reprocessed using commas as field separators, allowing for the reconstruction of the original table.
+
+```{r}
+# 1. Extarct the headers
+header <- names(influenza_data)[1]
+
+# 2. Extract the lines from the data
+lines <- influenza_data[[1]]
+
+# 3. Combine and convert to a proper table format
+# Re-process the commas as separators
+clena_data <- read.csv(text = c(header, lines), check.names = FALSE)
+
+# 4. Verifie the result
+View(clena_data)
+dim(clena_data)
+```
+
+With the data organized into a readable table, it became necessary to further reduce the number of samples to adapt the dataset for the machine learning model. For this purpose, we opted to select only one of the subtypes of the Influenza A virus.
+
+The H3N2 subtype was chosen because it is the most prevalent in the dataset. This selection allowed the reduction of the original dataset from 1,856 samples to 1,212 samples, making it more specific and homogeneous for modeling.
+
+Initially, the distribution of genotypes present in the dataset was evaluated:
+
+```{r}
+table(clena_data$Genotype)
+```
+
+Next, a subset containing exclusively H3N2 subtype samples was created:
+
+```{r}
+df_H3N2 <-subset(clena_data, Genotype == 'H3N2')
+
+nrow(df_H3N2)
+```
+
+This procedure ensures that the machine learning model is trained with more consistent and biologically relevant data, reducing the variability associated with different viral subtypes.
+
+With the H3N2 metadata subset defined, we filter the corresponding sequences in the original FASTA file. To do this, we load all sequences, compare the IDs from the dataframe with the names in the FASTA file (after cleaning periods and spaces), and extract only the corresponding sequences.
+
+```{r}
+# 1. Loads all the sequences into a FASTA file
+all_seqs <- readDNAStringSet("sequences.fasta") #respective path to file
+
+# 2. Extract the IDs from filtered dataframe 
+ids_h3n2 <- df_H3N2$Accession
+
+# 3. Clean the FASTA names for comparison
+# We will take only the ID before the dot or the space
+names_clean_fasta <- sub("\\..*", "", names(all_seqs)) # Remove everything after the dot
+names_clean_fasta <- sub(" .*", "", names_clean_fasta) # Remove everything after the space
+
+# 4. Create the logical filtering mask
+logic_filter <- names_clean_fasta %in% ids_h3n2 #checks that the old ids are not in the clean ids
+
+# 5. Aplies the filter
+fasta_h3n2 <- all_seqs[logic_filter]
+
+# 6. Verifies is it now works
+print(paste("Sequences found:", length(fasta_h3n2)))
+```
+
+Subsequently, we perform additional cleaning of the headers of the filtered sequences, removing redundant information before the marker "(H3N2))", in order to obtain clear and consistent names for subsequent analyses.
+
+```{r}
+# 1. Extract the names (headers) of the filtered sequences
+headers_h3n2 <- names(fasta_h3n2)
+
+# 2. Cut everything before (and including) "(H3N2)"
+# We use  \\ to "escape" the parentheses, since they are special characters in R
+clean_segments <- sub(".*\\(H3N2\\)\\) ", "", headers_h3n2)
+```
+
+Next, we perform the selection and analysis of the sequences corresponding to segment 4, hemagglutinin (HA), which is biologically relevant for studies of Influenza A H3N2. First, we filter the sequences for the target segment, verify if the number of sequences matches expectations, and save the subset into a new FASTA file.
+
+```{r}
+# 1. Define exactly the name of the segment we want to extract
+target_segment <- "segment 4 hemagglutinin (HA) gene, complete cds"
+
+# 2. Identify which headers end with this text
+# Note: we use the 'clean_segments' we created in the previous step
+indices_alvo <- clean_segments == target_segment
+
+# 3. Filter the Biostrings objects
+segment4_fasta<- fasta_h3n2[indices_alvo]
+
+# 4. Check if the number matches (it should be 135)
+length(segment4_fasta)
+
+# 5. Sves a new FASTA file
+writeXStringSet(segment4_fasta, "H3N2_Segmento4_HA.fasta")
+```
+
+Next, we calculate the length of all H3N2 sequences, generating a consistency summary per segment, including minimum and maximum size, number of distinct sizes, and total sequences. This step allows for the evaluation of data quality and uniformity before analysis.
+
+```{r}
+# 1. Calculate the length (number of bases) of all H3N2 sequences
+seq_lenghts <- width(fasta_h3n2)
+
+# 2. Create a temporary dataframe for analysis
+df_analise_Size <- data.frame(
+  Segment = clean_segments,
+  Size = seq_lenghts
+)
+
+# 3. Group and calculate: Min, Max, How many different Sizes, and Total sequences
+consistency_summary <- aggregate(Size ~ Segment, 
+                                 data = df_analise_Size, 
+                                 FUN = function(x) c(Min = min(x), 
+                                                     Max = max(x), 
+                                                     Diferentes = length(unique(x)),
+                                                     Total = length(x)))
+
+# 4. Convert to a readable table format
+consistency_summary <- do.call(data.frame, consistency_summary)
+
+# Update the column names (now with 5 columns)
+colnames(consistency_summary) <- c("Segment", 
+                                   "Min_Size", 
+                                   "Max_Size", 
+                                   "Qtd_Sizes_Distinct", 
+                                   "Total_Sequences")
+
+# 5. Sort by the largest number of sequences to make reading easier
+consistency_summary <- consistency_summary[order(-consistency_summary$Total_Sequences), ]
+
+# 6. View result
+print(consistency_summary)
+```
+
+To consolidate different HA names present in the metadata, we created a unified subset with all HA nomenclature variants (complete cds), verifying the total sequences and saving them into a combined FASTA file.
+
+```{r}
+# 1. Create a vector with the exact names of the segments we want to group
+target_ha <- c(
+  "segment 4 hemagglutinin (HA) gene, complete cds",
+  "hemagglutinin (HA) gene, complete cds",
+  "HA gene for hemagglutinin, complete cds"
+)
+
+# 2.Identify which indexes have the strings defined in target_ha
+# We use the 'clean_segments' that we created earlier
+combined_indexes <- clean_segments %in% target_ha
+
+# 3. Filter the original object with the H3N2 sequences
+ha_unified_fasta <- fasta_h3n2[combined_indexes]
+
+# 4. Check how many sequences we have in total (it should be the sum of the 3 groups)
+cat("Total de sequências de HA (complete cds) reunidas:", length(ha_unified_fasta), "\n")
+
+# 5. Saves the results in a new FASTA file
+writeXStringSet(ha_unified_fasta, "H3N2_HA_Merged_Complete.fasta")
+
+# 6. Optional: Check if the sizes are consistent in this new group
+table(width(ha_unified_fasta))
+```
+
+Finally, we associate the corresponding metadata with these unified HA sequences, verifying the match between the number of rows in the dataframe and the number of sequences in the FASTA file, and save the metadata in CSV format for further analysis.
+
+```{r}
+# 1. Create the metadata dataframe only with the selected HA segments
+df_ha_metadata<- df_H3N2[combined_indexes, ]
+
+# 2. Check if the number of lines in the DF matches the number of sequences in the FASTA
+# (They should be equal to 'length(ha_unified_fasta)')
+nrow(df_ha_metadata)
+
+# 3. Saves the metadata in a CSV file
+write.csv(df_ha_metadata, "Metadados_H3N2_HA_Complete.csv", row.names = FALSE)
+
+# 4. View the first lines to confirm
+View(df_ha_metadata)
+```
